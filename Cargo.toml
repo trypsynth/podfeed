@@ -1,8 +1,8 @@
 [package]
 name = "podfeed"
-version = "0.2.3"
+version = "0.2.4"
 repository = "https://github.com/trypsynth/podfeed"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 regex = "1.11.1"
