@@ -1,6 +1,6 @@
 [package]
 name = "podfeed"
-version = "0.2.4"
+version = "0.2.5"
 repository = "https://github.com/trypsynth/podfeed"
 edition = "2021"
 
