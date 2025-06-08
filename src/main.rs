@@ -1,33 +1,53 @@
+use anyhow::{Context, Result};
 use regex::Regex;
-use reqwest::blocking::get;
-use serde::{Deserialize, Serialize};
-use std::{env, error::Error, io::Read, process};
+use reqwest::blocking::Client;
+use serde::Deserialize;
+use std::env;
 
-#[derive(Deserialize, Serialize, Debug)]
-struct Results {
-    results: Vec<ResultItem>,
+#[derive(Deserialize, Debug)]
+struct ItunesResponse {
+    results: Vec<PodcastResult>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-struct ResultItem {
+#[derive(Deserialize, Debug)]
+struct PodcastResult {
     #[serde(rename = "feedUrl")]
     feed_url: String,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    if env::args().len() != 2 {
-        eprintln!("Usage: {} <URL>", env::args().next().unwrap());
-        process::exit(1);
-    }
-    let url = env::args().nth(1).unwrap();
-    let re = Regex::new(r"[^w]+\/id(?P<id>\d+)")?;
-    let captures = re.captures(&url).ok_or("No match found for ID")?;
-    let id = captures.name("id").ok_or("No ID captured")?.as_str();
-    let api_url = format!("https://itunes.apple.com/lookup?id={}&entity=podcast", id);
-    let mut response = get(&api_url)?;
-    let mut body = String::new();
-    response.read_to_string(&mut body)?;
-    let response: Results = serde_json::from_str(&body)?;
-    println!("{}", response.results[0].feed_url);
+fn extract_podcast_id(url: &str) -> Result<String> {
+    let re = Regex::new(r"/id(?P<id>\d+)").context("Failed to compile regex")?;
+    let id = re
+        .captures(url)
+        .and_then(|caps| caps.name("id"))
+        .map(|m| m.as_str())
+        .context("No podcast ID found in URL")?;
+    Ok(id.to_string())
+}
+
+fn fetch_feed_url(podcast_id: &str) -> Result<String> {
+    let client = Client::new();
+    let api_url = format!(
+        "https://itunes.apple.com/lookup?id={}&entity=podcast",
+        podcast_id
+    );
+    let response: ItunesResponse = client
+        .get(&api_url)
+        .send()
+        .context("Failed to send request")?
+        .json()
+        .context("Failed to parse JSON response")?;
+    response
+        .results
+        .first()
+        .map(|result| result.feed_url.clone())
+        .context("No podcast found with the given ID")
+}
+
+fn main() -> Result<()> {
+    let url = env::args().nth(1).context("Usage: program <iTunes_URL>")?;
+    let podcast_id = extract_podcast_id(&url)?;
+    let feed_url = fetch_feed_url(&podcast_id)?;
+    println!("{}", feed_url);
     Ok(())
 }
