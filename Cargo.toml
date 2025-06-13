@@ -3,6 +3,7 @@ name = "podfeed"
 version = "0.2.5"
 repository = "https://github.com/trypsynth/podfeed"
 edition = "2024"
+rust-version = "1.85.1"
 
 [dependencies]
 anyhow = "1.0.98"
