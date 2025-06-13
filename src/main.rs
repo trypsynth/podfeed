@@ -1,3 +1,5 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+
 use anyhow::{Context, Result};
 use regex::Regex;
 use reqwest::blocking::Client;
@@ -28,8 +30,7 @@ fn extract_podcast_id(url: &str) -> Result<String> {
 fn fetch_feed_url(podcast_id: &str) -> Result<String> {
     let client = Client::new();
     let api_url = format!(
-        "https://itunes.apple.com/lookup?id={}&entity=podcast",
-        podcast_id
+        "https://itunes.apple.com/lookup?id={podcast_id}&entity=podcast"
     );
     let response: ItunesResponse = client
         .get(&api_url)
@@ -48,6 +49,6 @@ fn main() -> Result<()> {
     let url = env::args().nth(1).context("Usage: program <iTunes_URL>")?;
     let podcast_id = extract_podcast_id(&url)?;
     let feed_url = fetch_feed_url(&podcast_id)?;
-    println!("{}", feed_url);
+    println!("{feed_url}");
     Ok(())
 }
