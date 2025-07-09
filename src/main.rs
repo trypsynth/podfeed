@@ -37,7 +37,7 @@ fn fetch_feed_url(podcast_id: &str) -> Result<String> {
 }
 
 fn main() -> Result<()> {
-	let url = env::args().nth(1).context("Usage: program <iTunes_URL>")?;
+	let url = env::args().nth(1).context("Usage: podfeed <iTunes_URL>")?;
 	let podcast_id = extract_podcast_id(&url)?;
 	let feed_url = fetch_feed_url(&podcast_id)?;
 	println!("{feed_url}");
