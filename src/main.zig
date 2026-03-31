@@ -8,30 +8,39 @@ const PodcastResult = struct {
 	feedUrl: []const u8,
 };
 
-pub fn main() !void {
-	const allocator = std.heap.page_allocator;
-	const args = try std.process.argsAlloc(allocator);
-	defer std.process.argsFree(allocator, args);
-	if (args.len == 1) {
+pub fn main(init: std.process.Init) !void {
+	const allocator = init.gpa;
+	const io = init.io;
+	var args = try std.process.Args.iterateAllocator(init.minimal.args, allocator);
+	defer args.deinit();
+	_ = args.skip();
+	const first_url = args.next() orelse {
 		std.debug.print("usage: podfeed <URL1> [<URL2>...]\n", .{});
 		std.process.exit(1);
-	}
+	};
 	var stdout_buf: [256]u8 = undefined;
-	var stdout = std.fs.File.stdout().writer(&stdout_buf);
-	for (args[1..]) |itunes_url| {
-		const id = getPodcastId(itunes_url) catch |err| switch (err) {
-			error.NoPodcastId => {
-				std.debug.print("podfeed: invalid URL {s}\n", .{ itunes_url });
-				continue;
-			},
-		};
-		const feed = getRealUrl(allocator, id) catch |err| {
-			std.debug.print("podfeed: error gotten for {s}: {s}\n", .{ itunes_url, @errorName(err) });
-			continue;
-		};
-		try stdout.interface.print("{s}\n", .{ feed });
+	var stdout = std.Io.File.stdout().writer(init.io, &stdout_buf);
+	try processUrl(io, allocator, &stdout.interface, first_url);
+	while (args.next()) |url| {
+		try processUrl(io, allocator, &stdout.interface, url);
 	}
 	try stdout.interface.flush();
+}
+
+fn processUrl(io: std.Io, allocator: std.mem.Allocator, writer: *std.Io.Writer, url: []const u8) !void {
+	const id = getPodcastId(url) catch |err| {
+		if (err == error.NoPodcastId) {
+			std.debug.print("podfeed: invalid URL {s}\n", .{ url });
+			return;
+		}
+		return err;
+	};
+	const feed = getRealUrl(io, allocator, id) catch |err| {
+		std.debug.print("podfeed: error for {s}: {s}\n", .{ url, @errorName(err) });
+		return;
+	};
+	defer allocator.free(feed);
+	try writer.print("{s}\n", .{ feed });
 }
 
 fn getPodcastId(url: []const u8) ![]const u8 {
@@ -44,11 +53,11 @@ fn getPodcastId(url: []const u8) ![]const u8 {
 	return url[start..i];
 }
 
-fn getRealUrl(allocator: std.mem.Allocator, id: []const u8) ![]const u8 {
+fn getRealUrl(io: std.Io, allocator: std.mem.Allocator, id: []const u8) ![]const u8 {
 	const api_url = try std.fmt.allocPrint(allocator, "https://itunes.apple.com/lookup?id={s}&entity=podcast", .{ id });
 	defer allocator.free(api_url);
 	const uri = try std.Uri.parse(api_url);
-	var client = std.http.Client{ .allocator = allocator };
+	var client = std.http.Client{ .io = io, .allocator = allocator };
 	defer client.deinit();
 	var writer = std.Io.Writer.Allocating.init(allocator);
 	defer writer.deinit();
