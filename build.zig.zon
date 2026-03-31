@@ -1,0 +1,7 @@
+.{
+	.name = .podfeed,
+	.version = "0.0.1",
+	.minimum_zig_version = "0.15.2",
+	.paths = .{ "src" },
+	.fingerprint = 0xe610f8e00284063a,
+}
