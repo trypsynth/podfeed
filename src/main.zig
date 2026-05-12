@@ -13,7 +13,7 @@ pub fn main(init: std.process.Init) !void {
 	const io = init.io;
 	var args = try std.process.Args.iterateAllocator(init.minimal.args, allocator);
 	defer args.deinit();
-	_ = args.skip();
+	if (!args.skip()) return error.MissingProgramName;
 	const first_url = args.next() orelse {
 		std.debug.print("usage: podfeed <URL1> [<URL2>...]\n", .{});
 		std.process.exit(1);
@@ -28,19 +28,18 @@ pub fn main(init: std.process.Init) !void {
 }
 
 fn processUrl(io: std.Io, allocator: std.mem.Allocator, writer: *std.Io.Writer, url: []const u8) !void {
-	const id = getPodcastId(url) catch |err| {
-		if (err == error.NoPodcastId) {
-			std.debug.print("podfeed: invalid URL {s}\n", .{ url });
+	const id = getPodcastId(url) catch |err| switch (err) {
+		error.NoPodcastId => {
+			std.debug.print("podfeed: invalid URL {s}\n", .{url});
 			return;
-		}
-		return err;
+		},
 	};
 	const feed = getRealUrl(io, allocator, id) catch |err| {
 		std.debug.print("podfeed: error for {s}: {s}\n", .{ url, @errorName(err) });
 		return;
 	};
 	defer allocator.free(feed);
-	try writer.print("{s}\n", .{ feed });
+	try writer.print("{s}\n", .{feed});
 }
 
 fn getPodcastId(url: []const u8) ![]const u8 {
@@ -54,7 +53,7 @@ fn getPodcastId(url: []const u8) ![]const u8 {
 }
 
 fn getRealUrl(io: std.Io, allocator: std.mem.Allocator, id: []const u8) ![]const u8 {
-	const api_url = try std.fmt.allocPrint(allocator, "https://itunes.apple.com/lookup?id={s}&entity=podcast", .{ id });
+	const api_url = try std.fmt.allocPrint(allocator, "https://itunes.apple.com/lookup?id={s}&entity=podcast", .{id});
 	defer allocator.free(api_url);
 	const uri = try std.Uri.parse(api_url);
 	var client = std.http.Client{ .io = io, .allocator = allocator };
