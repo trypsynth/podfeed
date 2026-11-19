@@ -1,0 +1,52 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  build:
+    strategy:
+      matrix:
+        target:
+          - x86_64-linux-musl
+          - aarch64-linux-musl
+          - x86_64-windows-gnu
+          - aarch64-windows-gnu
+          - x86_64-macos
+          - aarch64-macos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          zig-version: 0.17.1
+      - name: Build
+        run: zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSmall
+      - name: Package
+        run: |
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            mv zig-out/bin/podfeed.exe podfeed-${{ matrix.target }}.exe
+          else
+            mv zig-out/bin/podfeed podfeed-${{ matrix.target }}
+          fi
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: podfeed-${{ matrix.target }}
+          path: podfeed-${{ matrix.target }}*
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

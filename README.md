@@ -2,6 +2,10 @@
 
 Fast podcast RSS feed URL extractor written in Zig. Converts iTunes podcast URLs to RSS feed URLs.
 
+## Download
+
+Get the file for your system from the [latest release](https://github.com/trypsynth/podfeed/releases/latest). Builds are available for Windows, macOS and Linux, on x64 and ARM64.
+
 ## Usage
 
 ```sh
